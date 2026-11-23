@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Reference - Simple Conveyor</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="format-selector" id="top">
+    <span class="format-label">View:</span>
+    <a href="index.html" class="format-link">Multi-Page</a>
+    <a href="single-page.html" class="format-link">Single Page</a>
+  </div>
+
+  <nav class="navbar"><ul>
+    <li><a href="index.html">Home</a></li>
+    <li><a href="quick-start.html">Quick Start</a></li>
+    <li><a href="generating.html">Generating</a></li>
+    <li><a href="api-reference.html" class="active">API Reference</a></li>
+    <li><a href="demos.html">Demos</a></li>
+    <li><a href="troubleshooting.html">Troubleshooting</a></li>
+    <li><a href="about.html">About</a></li>
+  </ul></nav>
+
+  <div class="hero">
+    <h1>API Reference</h1>
+    <p class="tagline">Every public type you are likely to use, and what it does.</p>
+  </div>
+
+  <div class="page-layout">
+    <aside class="toc">
+      <h3>On this page</h3>
+      <ul>
+        <li><a href="#layout">Assemblies and numbers</a></li>
+        <li><a href="#generator">ConveyorGenerator</a></li>
+        <li><a href="#settings">ConveyorSettings and enums</a></li>
+        <li><a href="#data">ConveyorData</a></li>
+        <li><a href="#play">Playing: ConveyorRules</a></li>
+        <li><a href="#solver">Solving and rating</a></li>
+        <li><a href="#byhand">A puzzle by hand</a></li>
+        <li><a href="#presets">Presets, Auto and audit</a></li>
+        <li><a href="#pictures">Pictures</a></li>
+        <li><a href="#assets">ScriptableObjects</a></li>
+        <li><a href="#demo">Demo components</a></li>
+        <li><a href="#blocks">Building blocks</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+
+      <div class="section">
+        <h2 id="layout">Assemblies and numbers</h2>
+        <table>
+          <tr><th>Assembly</th><th>What is in it</th></tr>
+          <tr><td><code>SimpleConveyor</code></td><td>The core: the generator, the solver, the play rules, the puzzle data,
+            the pictures and the ScriptableObjects. It has no package dependencies, and everything but the ScriptableObjects
+            is plain C# that also runs outside Unity.</td></tr>
+          <tr><td><code>SimpleConveyor.Demo</code></td><td>The 3D demo: the board, the game, the HUD, the hub, sounds and
+            effects. It uses the Input System and Unity UI packages, and HDRP when that package is installed.</td></tr>
+          <tr><td><code>SimpleConveyor.Editor</code></td><td>The Conveyor Generator window, the inspectors, the
+            documentation menu and the build step that keeps the demo's shader. Editor only.</td></tr>
+        </table>
+        <p>Everything below is in the <span class="k">SimpleConveyor</span> namespace unless it says
+          <span class="k">SimpleConveyor.Demo</span>. The core uses plain numbers throughout, and names cells by what they
+          do (see <a href="index.html#words">Names in the data</a>: a belt is an Arrow, a stop tile is Normal floor, a gem is
+          a pickup and a hole is a Hazard):</p>
+        <ul>
+          <li><strong>Cells</strong> are numbered <code>y * Width + x</code>, with row 0 at the bottom, so cell 0 is the
+            bottom left corner.</li>
+          <li><strong>Directions</strong> are 0 North (y + 1), 1 East (x + 1), 2 South and 3 West. <span class="k">Dirs</span>
+            has them as <code>North</code>, <code>East</code>, <code>South</code>, <code>West</code> and
+            <code>Count</code>, with <code>Dx(dir)</code>, <code>Dy(dir)</code>, <code>Opposite(dir)</code> and
+            <code>Name(dir)</code>.</li>
+          <li><strong>Gems</strong> are tracked as a bit mask: bit i of a position's <code>Taken</code> is
+            <code>Pickups[i]</code>. <strong>The switch state</strong> is a small number: how many times the switches have
+            acted, wrapped (0 to 1 with Reverse, 0 to 3 with Rotate).</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2 id="generator">ConveyorGenerator</h2>
+        <p>The entry point. Every method copies and clamps the settings first, so your object is never changed, and the
+          same settings with the same seed always give the same puzzle. A null settings object means the defaults, and an
+          empty seed means a fresh random one.</p>
+        <table>
+          <tr><th>Method</th><th>What it does</th></tr>
+          <tr><td><code>ConveyorData Generate(ConveyorSettings settings)</code></td><td>One puzzle from this exact seed,
+            solved and rated.</td></tr>
+          <tr><td><code>ConveyorData GenerateVerified(ConveyorSettings settings, CancellationToken cancel = default)</code></td>
+            <td>Tries the seed, then the seed with <code>#1</code>, <code>#2</code> and so on, up to
+            <code>MaxAttempts</code>, until a puzzle is sound (see <code>IsSound</code>) and rated
+            <code>TargetDifficulty</code> stars (0 means any). On a miss it returns the closest puzzle with a note. If it is
+            cancelled before the first puzzle, it throws <code>OperationCanceledException</code>.</td></tr>
+          <tr><td><code>ConveyorData GenerateVerified(ConveyorSettings settings, CancellationToken cancel, IProgress&lt;ConveyorProgress&gt; progress, double timeLimitSeconds = 0)</code></td>
+            <td>The same with progress and a time limit. The progress hears which board it is on and what that board is
+            doing. A cancel stops it within a fraction of a second, even in the middle of a board. Past the time limit (0
+            means none) it returns the closest puzzle of the boards that finished, with a note. When no board finished in
+            time it throws <code>TimeoutException</code>, saying what the first board was still doing.</td></tr>
+          <tr><td><code>List&lt;ConveyorData&gt; GenerateBatch(ConveyorSettings settings, int count, CancellationToken cancel = default)</code></td>
+            <td>A pack of verified puzzles with seeds <code>root-0</code>, <code>root-1</code> and so on.</td></tr>
+          <tr><td><code>Task&lt;ConveyorData&gt; GenerateAsync(...)</code>, <code>GenerateVerifiedAsync(...)</code></td><td>The
+            same on a background thread.</td></tr>
+          <tr><td><code>Task&lt;List&lt;ConveyorData&gt;&gt; GenerateBatchAsync(ConveyorSettings settings, int count, IProgress&lt;int&gt; progress = null, CancellationToken cancel = default)</code></td>
+            <td>A batch on a background thread, reporting how many are done (1 to count).</td></tr>
+          <tr><td><code>bool IsSound(ConveyorData m, ConveyorSettings s)</code></td><td>The hard requirements verified
+            generation uses: proven by a complete search, solvable, no dead ends, the par inside the window, at least the
+            chest spots asked for, no belt pointing into a wall, a hole or off the board in any switch state, at least the
+            switches and gems asked for with every one needed by the best solution, and (with Ice) at least the live holes
+            asked for.</td></tr>
+          <tr><td><code>bool HitsTargets(ConveyorData m, ConveyorSettings s)</code></td><td>True when the puzzle has the
+            stars the settings aim for (a target of 0 is always met).</td></tr>
+        </table>
+        <p><span class="k">ConveyorProgress</span> holds <code>Attempt</code> and <code>Attempts</code> (the board being
+          tried, from 1, and how many may be tried), <code>Stage</code> in plain words, <code>Seconds</code> since the puzzle
+          started and <code>Limit</code>. Its <code>ToString()</code> reads like "board 2 of 40: placing gems (1.3 s)".</p>
+      </div>
+
+      <div class="section">
+        <h2 id="settings">ConveyorSettings and enums</h2>
+        <p><span class="k">ConveyorSettings</span> holds every input to the generator. Each field, its range and what it
+          does is on the <a href="generating.html">Generating</a> page. It also has:</p>
+        <table>
+          <tr><th>Member</th><th>What it does</th></tr>
+          <tr><td><code>ConveyorSettings Clamp()</code></td><td>Puts every field into its valid range, in place, and returns
+            the same object.</td></tr>
+          <tr><td><code>ConveyorSettings Clone()</code></td><td>A copy.</td></tr>
+          <tr><td><code>MinSide</code>, <code>MaxSwitches</code>, <code>MaxPickups</code>, <code>MaxHoles</code></td><td>The
+            smallest board side the generator makes, and the most of each it places: 4, 2, 3 and 6.</td></tr>
+        </table>
+        <table>
+          <tr><th>Enum</th><th>Values</th></tr>
+          <tr><td><code>ConveyorSwitchMode</code></td><td>What a switch does: <code>Reverse</code> (the switched belts run the
+            other way, 2 states) or <code>Rotate</code> (a quarter turn clockwise, 4 states)</td></tr>
+          <tr><td><code>ConveyorBlock</code></td><td>Why a move can't start: <code>None</code> (it can), <code>Edge</code>
+            (the board's edge is right next to the piece), <code>Obstacle</code> (a wall is right next to it) and
+            <code>Loop</code> (belts would carry it round for ever, which a generated board never has)</td></tr>
+          <tr><td><code>ConveyorEnd</code></td><td>How a move ends: <code>Rest</code> or <code>Lost</code> (it entered a
+            hole)</td></tr>
+          <tr><td><code>ExportStyle</code></td><td><code>AsShown</code>, <code>Printable</code> and
+            <code>AnswerKey</code></td></tr>
+        </table>
+      </div>
+
+      <div class="section">
+        <h2 id="data">ConveyorData</h2>
+        <p>One puzzle, plain and serializable. Every cell is ice unless a list says otherwise, and a cell is in at most one
+          of the board lists. The generator fills in the board and the verdict, and you can build one by hand too (see
+          <a href="#byhand">A puzzle by hand</a>).</p>
+        <table>
+          <tr><th>Member</th><th>What it is</th></tr>
+          <tr><td><code>int Width, Height</code></td><td>The board's size in cells (2 to 32 a side).</td></tr>
+          <tr><td><code>List&lt;ConveyorArrow&gt; Arrows</code></td><td>The belts. Each has a <code>Cell</code> and the
+            <code>Dir</code> it runs (in switch state 0), and carries the piece one cell that way when it enters.</td></tr>
+          <tr><td><code>List&lt;int&gt; Normal</code></td><td>The stop tiles: the piece rests on the first one it
+            enters.</td></tr>
+          <tr><td><code>List&lt;int&gt; Obstacles</code></td><td>The walls: the piece can't enter them and rests in front of
+            them.</td></tr>
+          <tr><td><code>List&lt;int&gt; Hazards</code></td><td>The holes: entering one ends the attempt.</td></tr>
+          <tr><td><code>List&lt;int&gt; Pickups</code></td><td>The gems: taken when a ride enters their cell. With any, the
+            goal only wins once every one is taken.</td></tr>
+          <tr><td><code>List&lt;int&gt; Switches</code>, <code>List&lt;int&gt; SwitchedBelts</code>,
+            <code>ConveyorSwitchMode SwitchMode</code></td><td>The switches (stop tiles, so also in <code>Normal</code>), the
+            belts they turn, and how. Every switch turns the same belts.</td></tr>
+          <tr><td><code>int Start</code>, <code>int Goal</code>, <code>bool GoalCatches</code></td><td>Where the piece
+            starts, where it must come to rest to win, and whether passing over the goal stops it there (the goal is a stop
+            tile on generated boards, so it always does).</td></tr>
+          <tr><td><code>string Seed</code>, <code>ConveyorSettings Settings</code></td><td>What it was made from, so it can
+            be made again. Both are empty on a hand-made puzzle.</td></tr>
+          <tr><td><code>bool Complete</code>, <code>bool Solvable</code>, <code>int Par</code></td><td>Whether the search
+            finished (false means the budget cut it short, and nothing below is proven), whether it can be won, and the
+            proven fewest moves (-1 when unsolvable or not proven).</td></tr>
+          <tr><td><code>long OptimalCount</code>, <code>bool CountComplete</code>, <code>bool Unique</code></td><td>How many
+            best solutions there are, whether that count is complete (it stops at 1,000,000,000), and whether there is
+            exactly one.</td></tr>
+          <tr><td><code>bool CanGetStuck</code>, <code>float DeadEndShare</code>, <code>List&lt;int&gt; DeadEndStops</code></td>
+            <td>Whether the piece can come to rest somewhere it can never win from, the share of resting places that are
+            like that, and which cells they are. Generated puzzles have none.</td></tr>
+          <tr><td><code>long States</code>, <code>long Places</code></td><td>The positions the search explored, and the
+            resting places the piece can reach, each counted once per switch state. The stars use
+            <code>Places</code>.</td></tr>
+          <tr><td><code>List&lt;int&gt; Solution</code></td><td>One best solution, as directions.</td></tr>
+          <tr><td><code>int Choices</code>, <code>Decoys</code>, <code>WrongTurns</code>, <code>LongDetours</code>,
+            <code>FatalStops</code>, <code>FatalMoves</code></td><td>How the solution feels: stops with a real choice, stops
+            where a wrong move ends nearer the goal, wrong moves from the solution's stops, wrong turns costing 4 or more
+            extra moves, stops where a careless move ends in a hole, and moves from any resting place that end in a hole.
+            Each is -1 when not proven.</td></tr>
+          <tr><td><code>List&lt;int&gt; SideStops</code>, <code>List&lt;int&gt; SideStopCosts</code></td><td>The chest spots:
+            resting places on no best solution that can still reach the goal, the costliest first, and the extra moves going
+            by each one costs.</td></tr>
+          <tr><td><code>int Difficulty</code>, <code>float Score</code></td><td>The 1 to 5 star rating (0 when not proven)
+            and the score it comes from.</td></tr>
+          <tr><td><code>List&lt;string&gt; Notes</code></td><td>Plain-words notes from the generator and the solver. The
+            <a href="generating.html#honesty">Generating</a> page lists them.</td></tr>
+          <tr><td><code>Cells</code>, <code>X(cell)</code>, <code>Y(cell)</code>, <code>Cell(x, y)</code>,
+            <code>Clone()</code></td><td>Cell arithmetic, and a deep copy.</td></tr>
+        </table>
+        <div class="callout info"><p>The data comes from the rules engine Simple Conveyor shares with Simple Ice Slide, so
+          it also has fields a generated conveyor puzzle leaves empty: <code>Outside</code> (cells cut off a shaped board),
+          <code>Cracked</code> and <code>CrackedBecomes</code> (tiles that break), and <code>Portals</code>. The rules and the
+          solver play them correctly on a hand-made board, and the pictures draw them, but the generator doesn't place
+          them: measured on belts, portals only made shortcuts and cracked tiles changed nothing.</p></div>
+      </div>
+
+      <div class="section">
+        <h2 id="play">Playing: ConveyorRules</h2>
+        <p>The rules a game plays by. They are the same rules the solver counted with, so a game built on them always
+          agrees with the par.</p>
+        <table>
+          <tr><th>Method</th><th>What it does</th></tr>
+          <tr><td><code>ConveyorPlay NewGame(ConveyorData m)</code></td><td>The starting position.</td></tr>
+          <tr><td><code>bool TryMove(ConveyorData m, ConveyorPlay play, int dir, List&lt;int&gt; path, out string reason)</code></td>
+            <td>Moves the piece and updates the position in place: it rests where the ride ends, or <code>Lost</code> turns
+            true when it ends in a hole, every gem it entered is taken, and resting on a switch turns the switched belts.
+            <code>path</code>, when given, is cleared and gets every cell entered, in order, for a game to animate. On a
+            refusal it returns false with a short reason, such as "an Obstacle stands on 23, right next to the piece".
+            Overloads leave out the path, or the path and the reason.</td></tr>
+          <tr><td><code>ConveyorBlock Preview(ConveyorData m, ConveyorPlay play, int dir, out int end, out ConveyorEnd how, List&lt;int&gt; path = null)</code></td>
+            <td>Where a move would end and how, without moving anything.</td></tr>
+          <tr><td><code>ConveyorBlock Blocked(ConveyorData m, ConveyorPlay play, int dir)</code></td><td>Why a move can't
+            start, without changing anything.</td></tr>
+          <tr><td><code>List&lt;int&gt; LegalMoves(ConveyorData m, ConveyorPlay play)</code></td><td>The directions a player
+            can move now, moves into holes included. Empty when the puzzle is solved or the attempt is lost.</td></tr>
+          <tr><td><code>bool Hint(ConveyorData m, ConveyorPlay play, out int dir, int stateBudget = ConveyorSolver.DefaultBudget)</code></td>
+            <td>The first move of a best way on from here. False when the puzzle is solved, the attempt is lost, or the goal
+            can't be reached from here any more.</td></tr>
+          <tr><td><code>bool IsSolved(ConveyorData m, ConveyorPlay play)</code>, <code>bool IsLost(ConveyorPlay play)</code></td>
+            <td>Won (resting on the goal with every gem taken), and lost (the piece entered a hole).</td></tr>
+          <tr><td><code>int BeltWay(ConveyorData m, ConveyorPlay play, int cell)</code></td><td>Where the belt on a cell
+            points now, with the switches as this position has them, or -1 when there is no belt there. Draw belts with
+            this, not with the Arrow's stored <code>Dir</code>.</td></tr>
+          <tr><td><code>bool IsSwitch(ConveyorData m, int cell)</code></td><td>Whether a cell is a switch.</td></tr>
+          <tr><td><code>bool IsTaken(m, play, cell)</code>, <code>int PickupsLeft(m, play)</code></td><td>How the gems stand
+            in this position.</td></tr>
+          <tr><td><code>bool IsBroken(m, play, cell)</code>, <code>int Twin(m, cell)</code></td><td>For hand-made boards
+            with cracked tiles or portals: whether a cracked tile is broken, and the other end of a portal (-1 when
+            none).</td></tr>
+          <tr><td><code>bool Validate(ConveyorData m, out string error)</code></td><td>Checks that the data makes sense:
+            sizes, every listed cell on the board and in one list only, every belt pointing one of the four ways, the start
+            and goal on floor and apart, switches on stop tiles and off the start and goal, switched belts on belts, and the
+            limits on gems and switches. It doesn't say whether the puzzle can be solved (the solver does), nor whether a
+            hand-made board keeps the belt rule.</td></tr>
+        </table>
+        <p><span class="k">ConveyorPlay</span> is the position in play, and the only thing a game has to keep between
+          moves:</p>
+        <table>
+          <tr><th>Member</th><th>What it is</th></tr>
+          <tr><td><code>int Cell</code></td><td>Where the piece is.</td></tr>
+          <tr><td><code>bool Lost</code></td><td>The piece entered a hole. What happens next is your game's choice: the demo
+            puts the position back to before that move.</td></tr>
+          <tr><td><code>int Taken</code></td><td>The gems taken, as a bit mask.</td></tr>
+          <tr><td><code>int Switch</code></td><td>The switch state (0 at the start).</td></tr>
+          <tr><td><code>int Broken</code></td><td>Cracked tiles broken, as a bit mask (hand-made boards only).</td></tr>
+          <tr><td><code>ConveyorPlay Clone()</code></td><td>A copy, for undo.</td></tr>
+        </table>
+      </div>
+
+      <div class="section">
+        <h2 id="solver">Solving and rating</h2>
+        <table>
+          <tr><th>Member</th><th>What it does</th></tr>
+          <tr><td><code>ConveyorVerdict ConveyorSolver.Solve(ConveyorData m, int stateBudget = DefaultBudget)</code></td>
+            <td>Solves a puzzle from its start.</td></tr>
+          <tr><td><code>ConveyorVerdict ConveyorSolver.SolveFrom(ConveyorData m, ConveyorPlay play, int stateBudget = DefaultBudget)</code></td>
+            <td>Solves on from a position in play: its <code>Par</code> is the moves still needed, and a lost position has
+            no way on.</td></tr>
+          <tr><td><code>ConveyorVerdict ConveyorSolver.Verify(ConveyorData m, int stateBudget = DefaultBudget)</code></td>
+            <td>Solves and writes the verdict, the feel, the chest spots and the stars into the puzzle, with a note when the
+            budget cut the search short. Use it after building or changing a puzzle by hand.</td></tr>
+          <tr><td><code>ConveyorSolver.DefaultBudget</code>, <code>ConveyorSolver.CountCap</code></td><td>1,000,000
+            positions, and the 1,000,000,000 where the best-solution count stops.</td></tr>
+          <tr><td><code>ConveyorDifficulty.Score(m)</code>, <code>Score(par, places, gems)</code>, <code>Stars(score)</code>,
+            <code>Stars(m)</code>, <code>Ceiling(stars)</code>, <code>Bands</code></td><td>The stars: the score is the
+            square root of par times resting places times (1 + gems / 4), read against the bands on the
+            <a href="generating.html#stars">Generating</a> page. <code>Ceiling</code> is the score a puzzle must stay under
+            to have at most that many stars.</td></tr>
+        </table>
+        <p><span class="k">ConveyorVerdict</span> holds <code>Solvable</code>, <code>Par</code>, <code>Count</code>,
+          <code>CountComplete</code>, <code>Unique</code>, <code>CanGetStuck</code>, <code>BudgetCut</code>,
+          <code>Explored</code>, <code>Places</code>, the dead-end, feel and chest-spot numbers that <code>Verify</code>
+          copies into the puzzle, and one best solution as <code>Moves</code> (directions).</p>
+        <div class="callout info"><p>A plain belt board needs one position per cell. Each gem can double that, and switches
+          multiply it by 2 or 4, so a board with 3 gems and Rotate switches can have 32 positions per cell. The generator
+          only accepts puzzles whose search finished, and a solve you call yourself with too small a budget is marked as not
+          proven, with a note.</p></div>
+      </div>
+
+      <div class="section">
+        <h2 id="byhand">A puzzle by hand</h2>
+        <p>Fill in the board and the puzzle, check it with <span class="k">ConveyorRules.Validate</span>, then let the
+          solver write the verdict. On this 4 x 4 board, a move east from the start rides the belts along the bottom row, up
+          the right side and back west onto the stop tile in the middle. A gem on the ice up the left side has to be fetched
+          first. The comments show what it prints.</p>
+<pre><code>using System.Collections.Generic;
+using System.Linq;
+using SimpleConveyor;
+using UnityEngine;
+
+var m = new ConveyorData
+{
+    Width = 4, Height = 4,
+    Start = 0,                                  // cell (0, 0), bottom left
+    Goal = 15,                                  // cell (3, 3), top right
+    Normal = new List&lt;int&gt; { 0, 10, 15 },       // stop tiles (the start and the goal are stop tiles too)
+    Obstacles = new List&lt;int&gt; { 13 },           // a wall on (1, 3)
+    Arrows = new List&lt;ConveyorArrow&gt;            // belts: a cell and the way it runs
+    {
+        new ConveyorArrow(1, Dirs.East), new ConveyorArrow(2, Dirs.East), new ConveyorArrow(3, Dirs.North),
+        new ConveyorArrow(7, Dirs.North), new ConveyorArrow(11, Dirs.West),
+    },
+    Pickups = new List&lt;int&gt; { 8 },              // a gem on (0, 2); every cell in no list is ice
+};
+
+if (!ConveyorRules.Validate(m, out string error)) Debug.LogError(error);
+ConveyorSolver.Verify(m);
+Debug.Log(ConveyorAudit.Short(m));                                  // 4 x 4, par 5, 1 star
+Debug.Log(string.Join(" ", m.Solution.Select(d =&gt; "NESW"[d])));     // N S E N E
+
+var start = ConveyorRules.NewGame(m);
+var path = new List&lt;int&gt;();
+ConveyorRules.TryMove(m, start, Dirs.East, path, out _);
+Debug.Log($"Rests on {start.Cell} after passing {string.Join(", ", path)}");   // Rests on 10 after passing 1, 2, 3, 7, 11, 10</code></pre>
+        <p>Without the gem the same board takes 3 moves (east, north, east), so the gem really is part of the puzzle: the
+          piece slides north up the ice to fetch it and back down to the start before riding the belts home. The line has
+          no "unique" because more than one route of 5 moves exists. <span class="k">Validate</span> doesn't check the belt
+          rule, so on a hand-made board it's up to you to keep belts from pointing into walls.</p>
+      </div>
+
+      <div class="section">
+        <h2 id="presets">Presets, Auto and audit</h2>
+        <table>
+          <tr><th>Member</th><th>What it does</th></tr>
+          <tr><td><code>ConveyorPresets.All</code></td><td>The 21 presets. Each <code>ConveyorPreset</code> has a
+            <code>Name</code> ("Switches/Reverse"), a <code>Description</code>, and <code>Make()</code>, which returns fresh
+            settings.</td></tr>
+          <tr><td><code>ConveyorSettings ConveyorPresets.Tune(ConveyorSettings s, List&lt;string&gt; changes)</code></td>
+            <td>The Auto button: a copy with settings that fight each other fixed, and a line in <code>changes</code> for
+            each fix.</td></tr>
+          <tr><td><code>bool ConveyorAudit.MeetsRequest(ConveyorData m)</code></td><td>True when a puzzle got everything
+            its settings asked for. A hand-made puzzle only needs to be proven and solvable.</td></tr>
+          <tr><td><code>List&lt;string&gt; ConveyorAudit.Missing(ConveyorData m)</code></td><td>What it missed, in plain
+            words, such as "1 of 2 gems needed by the best solution" or "4 stars, asked 3". Empty when it got
+            everything.</td></tr>
+          <tr><td><code>bool ConveyorAudit.Verify(ConveyorData m, out string before, out string after)</code></td><td>Solves
+            again and restamps the verdict. Returns true when the verdict changed. Data that fails <code>Validate</code> is
+            left alone, with the reason in <code>after</code>.</td></tr>
+          <tr><td><code>ConveyorData ConveyorAudit.Reroll(ConveyorData m)</code></td><td>A fresh puzzle from the same
+            settings and a new seed, or null for a hand-made one. An overload takes a cancel, progress and a time
+            limit.</td></tr>
+          <tr><td><code>bool ConveyorAudit.Generated(ConveyorData m)</code></td><td>True when the puzzle came from the
+            generator (it has a seed and settings).</td></tr>
+          <tr><td><code>string ConveyorAudit.Short(ConveyorData m)</code></td><td>One line, such as "8 x 8, par 17, 3 stars,
+            unique".</td></tr>
+        </table>
+      </div>
+
+      <div class="section">
+        <h2 id="pictures">Pictures</h2>
+        <p><span class="k">ConveyorExport</span> draws a puzzle with no Unity code at all, so it also works in tools and
+          on a server.</p>
+        <table>
+          <tr><th>Member</th><th>What it does</th></tr>
+          <tr><td><code>byte[] Png(ConveyorData m, ExportOptions options = null)</code></td><td>A .png file's bytes.</td></tr>
+          <tr><td><code>string Svg(ConveyorData m, ExportOptions options = null)</code></td><td>An SVG document, which stays
+            sharp at any size.</td></tr>
+          <tr><td><code>byte[] Pixels(ConveyorData m, ExportOptions options, out int width, out int height)</code></td>
+            <td>Raw RGBA bytes, top row first. Another overload also gives a <code>PictureFrame</code>, whose
+            <code>CellAt(px, py)</code> and <code>CellCentre(cell, out px, out py)</code> map a point on the picture to a
+            cell and back.</td></tr>
+          <tr><td><code>int FitSize(ConveyorData m, ExportOptions options, int maxWidth, int maxHeight)</code></td><td>The
+            <code>Size</code> that fits a picture in a box.</td></tr>
+          <tr><td><code>ConveyorPlay PlayAt(ConveyorData m, int step)</code></td><td>The position after the first
+            <code>step</code> moves of the stored solution.</td></tr>
+          <tr><td><code>List&lt;LegendIcon&gt; Legend(ConveyorData m, int step, int iconPx, bool sideStops = false)</code></td>
+            <td>The picture's legend as lines of text, each with its icon, for drawing beside the board in your own
+            font.</td></tr>
+        </table>
+        <p><span class="k">ExportOptions</span> has <code>Style</code>, <code>Size</code> (the board's longer side in
+          pixels, 1600 by default), <code>Step</code> (-1 for the start, or a step of the solution, with the moves so far
+          drawn as a line and the belts as the switches have turned them), <code>Legend</code>, <code>Piece</code> (false
+          leaves the piece off, for a 3D view that puts a real one on top) and <code>SideStops</code> (marks the chest spots,
+          off by default because on a printed puzzle they show where the route isn't).</p>
+        <table>
+          <tr><th>Type</th><th>What it does</th></tr>
+          <tr><td><code>ConveyorSketch</code></td><td>A puzzle as drawing marks in board units, which is what the pictures
+            and the editor preview draw. <code>Build(m, play, slides)</code> gives one <code>Mark</code> per thing on the
+            board (a <code>Kind</code> such as <code>Arrow</code>, <code>Ground</code>, <code>Switch</code>,
+            <code>Pickup</code> or <code>SideStop</code>, its cell, numbers, and whether it is done or switched in that
+            position) and the solution as <code>Lines</code>. <code>Describe(m, cell, play)</code> is a tooltip for one
+            cell, and <code>Frames(m)</code> is the stored solution move by move, each with a caption.</td></tr>
+        </table>
+      </div>
+
+      <div class="section">
+        <h2 id="assets">ScriptableObjects</h2>
+        <table>
+          <tr><th>Type</th><th>What it holds</th></tr>
+          <tr><td><code>ConveyorPuzzleAsset</code></td><td>One puzzle: <code>Puzzle</code> and <code>Label</code>, plus
+            shortcuts to its verdict (<code>Width</code>, <code>Height</code>, <code>Solvable</code>,
+            <code>IsUnique</code>, <code>OptimalCount</code>, <code>CanGetStuck</code>, <code>Par</code>,
+            <code>Difficulty</code>, <code>Seed</code>) and <code>Set(data, label)</code>.</td></tr>
+          <tr><td><code>ConveyorPuzzlePack</code></td><td>An ordered list of puzzles: <code>PackName</code>,
+            <code>Puzzles</code>, <code>Count</code>, <code>Get(index)</code> (null when out of range), <code>Set</code>,
+            <code>Add</code>, <code>Replace(index, data)</code> and <code>Clear()</code>.</td></tr>
+          <tr><td><code>PuzzleAssets</code></td><td><code>CreatePuzzle(data, label)</code> and
+            <code>CreatePack(puzzles, packName)</code> make new instances in memory, which you can save with
+            <code>AssetDatabase.CreateAsset</code> in the editor or use at runtime.</td></tr>
+          <tr><td><code>IPuzzleProvider</code></td><td>Both asset types implement it: <code>AppendTo(List&lt;ConveyorData&gt;
+            levels)</code> adds their puzzles in order, so one list in the inspector can take either.</td></tr>
+        </table>
+        <p>Both are created by the Conveyor Generator's Save menu, not by an empty right-click Create.</p>
+      </div>
+
+      <div class="section">
+        <h2 id="demo">Demo components</h2>
+        <p>These are in <span class="k">SimpleConveyor.Demo</span>. The <a href="demos.html">Demos</a> page explains how
+          they fit together.</p>
+        <table>
+          <tr><th>Type</th><th>What it does</th></tr>
+          <tr><td><code>ConveyorDemo</code></td><td>The one component the demo scene needs. It builds the board, game, HUD,
+            hub, sounds and effects in code and runs the flow. Fields: <code>Camera</code>, <code>UiThroughCamera</code>,
+            <code>Pitch</code>, <code>HdrpLook</code> and a level pack per mode (<code>BeltsPack</code>,
+            <code>GemsPack</code>, <code>SwitchesPack</code>, <code>IceAndHolesPack</code>). Methods include
+            <code>Setup()</code>, <code>PlayEndless(mode, ice, stars)</code>, <code>PlayLevel(mode, index)</code>,
+            <code>Generate(mode, settings)</code>, <code>Begin(puzzle)</code>, <code>NextGame()</code> and
+            <code>BackToHub()</code>.</td></tr>
+          <tr><td><code>ConveyorGame</code></td><td>Plays a puzzle on a <code>ConveyorBoardView</code>: moves against par,
+            switches turning belts, falls, undo, restart, hints and solving by itself, with keyboard, swipe, tap and camera
+            controls (<code>KeyboardInput</code>, <code>PointerInput</code> and <code>CameraControls</code> turn each off or
+            on). Start a game with <code>Begin(puzzle)</code>, drive it with <code>Slide(dir)</code>,
+            <code>Push(screenDir)</code>, <code>Tap(screenPoint)</code>, <code>Undo()</code>, <code>Restart()</code>,
+            <code>ShowHint()</code> and <code>StartAutoSolve()</code>, read <code>Moves</code>, <code>Falls</code>,
+            <code>Solved</code> and <code>DeadEnd</code>, and listen to <code>Moved</code>, <code>Won</code>,
+            <code>Stuck</code>, <code>Message</code>, <code>Cue</code> and <code>Moment</code>. <code>Why(m, play, dir,
+            block)</code> words a refusal for a player.</td></tr>
+          <tr><td><code>ConveyorBoardView</code></td><td>Builds a puzzle in 3D from meshes made in code, with no prefabs:
+            <code>Build(puzzle)</code>, <code>Show(play)</code> (every gem taken or not, and every switched belt turned for
+            that position), <code>Idle(dt)</code> (runs the belts), <code>PlacePiece(local)</code>,
+            <code>FrameCamera(camera)</code>, <code>CellWorld(cell)</code> and <code>LocalBounds</code>.
+            <code>BeltsRun</code> and <code>BeltSpeed</code> (0.6 cells a second) set how the belts run.</td></tr>
+          <tr><td><code>ConveyorHud</code></td><td>The in-game HUD and win panel, in uGUI with the built-in font.
+            <code>FreeAreas(camera)</code> says where the board can go without the HUD covering it.</td></tr>
+          <tr><td><code>ConveyorHub</code></td><td>The front screen: the welcome panel, the mode cards, and each mode's
+            Endless and Level Pack setup.</td></tr>
+          <tr><td><code>ConveyorDemoMode</code>, <code>ConveyorModes</code>, <code>ConveyorEndless</code></td><td>The four
+            demo modes (Belts, Gems, Switches, IceAndHoles), their names, colours and sample puzzles, and the Endless recipe
+            for each mode, board and star count.</td></tr>
+          <tr><td><code>ConveyorPackProgress</code></td><td>Each pack level's best moves, kept in PlayerPrefs:
+            <code>Best</code>, <code>Record</code>, <code>Clear</code> and <code>NameOf</code>.</td></tr>
+          <tr><td><code>ConveyorCue</code>, <code>ConveyorMoment</code></td><td>The game's moments worth a sound (a move
+            starting, a stop, a bump, a belt turning the piece (<code>Arrow</code>), a gem, a fall, a switch, a hint, a dead
+            end, a rewind, the win, and <code>Crack</code> and <code>Portal</code> for hand-made boards), and the same with
+            where it happened, its colour, its direction and, for the win, the board's extent.</td></tr>
+          <tr><td><code>ConveyorBeeper</code></td><td>Sounds made in code for every <code>ConveyorCue</code>, with no audio
+            files.</td></tr>
+          <tr><td><code>ConveyorEffects</code></td><td>Small effects (puffs, bursts, rings, chunks, swirls and confetti) from a pool of
+            primitives, for every <code>ConveyorMoment</code>.</td></tr>
+          <tr><td><code>ConveyorMeshes</code>, <code>MeshBuilder</code></td><td>The meshes, made in code: the puck, the gem,
+            chevrons and outlines in <code>ConveyorMeshes</code>, and <code>MeshBuilder</code>, which the board view uses for
+            the tiles, walls, belts and switches.</td></tr>
+          <tr><td><code>DemoLook</code>, <code>DemoHdrp</code></td><td>The demo's colours, materials and the running belts'
+            texture for the active render pipeline, and the HDRP volume that gives it the same look.</td></tr>
+        </table>
+      </div>
+
+      <div class="section">
+        <h2 id="blocks">Building blocks</h2>
+        <p>The belt builder itself is internal: every <span class="k">ConveyorGenerator</span> method goes through it, so
+          the belt rule and the checks always apply. <span class="k">Rng</span>, the small deterministic random generator
+          seeded from a string, is public for anyone who wants the same seeds in their own code.</p>
+      </div>
+
+    </main>
+  </div>
+
+  <div class="footer">
+    <p>Simple Conveyor by Living Failure. <a href="about.html">About and support</a></p>
+  </div>
+
+</div>
+</body>
+</html>

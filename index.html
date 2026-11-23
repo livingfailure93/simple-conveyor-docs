@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simple Conveyor - Documentation</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="format-selector" id="top">
+    <span class="format-label">View:</span>
+    <a href="index.html" class="format-link active">Multi-Page</a>
+    <a href="single-page.html" class="format-link">Single Page</a>
+  </div>
+
+  <nav class="navbar"><ul>
+    <li><a href="index.html" class="active">Home</a></li>
+    <li><a href="quick-start.html">Quick Start</a></li>
+    <li><a href="generating.html">Generating</a></li>
+    <li><a href="api-reference.html">API Reference</a></li>
+    <li><a href="demos.html">Demos</a></li>
+    <li><a href="troubleshooting.html">Troubleshooting</a></li>
+    <li><a href="about.html">About</a></li>
+  </ul></nav>
+
+  <div class="hero">
+    <h1>Simple Conveyor</h1>
+    <p class="tagline">Conveyor belt puzzles for Unity that are generated, solved exactly and rated.</p>
+    <p class="sub-tagline">Simple Conveyor builds a conveyor belt puzzle from your settings, then proves it can be solved
+      and works out its <strong>par</strong>, the fewest moves it takes. The player pushes the piece off a stop tile, and
+      the belts carry it their way until it comes to rest on another one, so the puzzle is reading where each ride ends.
+      It can add ice, switches that turn belts, gems to collect and holes, and it can keep resting places off the best
+      route for chests or keys. Every puzzle is rated 1 to 5 stars and can be saved as a ScriptableObject, exported as a
+      PNG or SVG picture, or played in the included 3D demo.</p>
+    <div class="pill">Version 1.0, by Living Failure</div>
+  </div>
+
+  <div class="page-layout">
+    <aside class="toc">
+      <h3>On this page</h3>
+      <ul>
+        <li><a href="#what">What it is</a></li>
+        <li><a href="#rules">The rules</a></li>
+        <li><a href="#words">Names in the data</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#verified">Why "verified"</a></li>
+        <li><a href="#start">Getting started</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+
+      <div class="section">
+        <h2 id="what">What it is</h2>
+        <p>Simple Conveyor is a conveyor belt puzzle generator with a solver built in. A piece rests on a stop tile, and the
+          player sends it north, east, south or west. It moves onto the next cell, and from there every belt it enters
+          carries it on the way that belt points, turning it where the belts turn, until it reaches a stop tile and rests.
+          You choose the board and what goes on it, and it builds a puzzle for you. Then it searches every position the
+          puzzle can reach, so you know for certain that it can be solved and how many moves the best solution takes.</p>
+        <p>Every generated board keeps one hard rule: <strong>no belt ever points into a wall, a hole or off the
+          board</strong>, in any switch state. A belt always carries the piece onto another belt, ice or a stop tile, so
+          the player never watches a ride end against a wall for no reason, and no ride goes round for ever.</p>
+        <p>Everything is deterministic. The same settings and the same seed always give the same puzzle, and every puzzle
+          keeps the settings and seed it was made from. When the generator can't give you exactly what you asked for, it
+          says so in the puzzle's notes instead of quietly handing you something else. In the editor pictures and in the
+          demo every kind of tile has its own shape as well as its own colour, so colour-blind players can tell them
+          apart.</p>
+      </div>
+
+      <div class="section">
+        <h2 id="rules">The rules</h2>
+        <div class="feature-grid">
+          <div class="feature-card"><h4>Belts carry the piece</h4><p>A belt carries the piece one cell its way, onto the
+            next belt or tile, so a ride follows the belts until it ends. A move into a wall or the board's edge right next
+            to the piece doesn't happen.</p></div>
+          <div class="feature-card"><h4>Stop tiles stop it</h4><p>The piece rests on the first stop tile a ride reaches.
+            Stop tiles are never side by side, so every move rides at least one belt (or ice). The start and the goal are
+            stop tiles too.</p></div>
+          <div class="feature-card"><h4>Ice keeps it going</h4><p>With <span class="k">Ice</span> on, ice keeps the piece
+            going the way it was moving until a stop tile stops it, a belt turns it, or a wall or the edge leaves it
+            resting on the ice in front.</p></div>
+          <div class="feature-card"><h4>Reach the goal</h4><p>Rest on the goal to win. With gems on the board, the goal only
+            counts once the piece has taken every one, by riding across it or stopping on it.</p></div>
+          <div class="feature-card"><h4>Switches turn belts</h4><p>Each time the piece comes to rest on a switch, every
+            switched belt turns: <em>Reverse</em> makes them run the other way, <em>Rotate</em> turns them a quarter turn
+            clockwise.</p></div>
+          <div class="feature-card"><h4>Avoid the holes</h4><p>On ice boards, a ride that ends in a hole loses the
+            attempt. What that means is up to your game: the demo plays the fall and puts the piece back where it
+            was.</p></div>
+        </div>
+        <div class="callout info"><p>A move the rules don't allow simply doesn't happen, and the rules say why. The solver
+          and your game use the same rules, so they always agree.</p></div>
+      </div>
+
+      <div class="section">
+        <h2 id="words">Names in the data</h2>
+        <p>Simple Conveyor shares its rules engine with Simple Ice Slide, so the puzzle data names cells by what they do,
+          not by how they look. Your game can draw them however it likes:</p>
+        <table>
+          <tr><th>On the board</th><th>In <span class="k">ConveyorData</span></th><th>What it does</th></tr>
+          <tr><td>Belt</td><td><span class="k">Arrows</span> (cell and direction)</td><td>Carries the piece one cell its
+            way when it enters.</td></tr>
+          <tr><td>Stop tile</td><td><span class="k">Normal</span></td><td>The piece rests on the first one it
+            enters.</td></tr>
+          <tr><td>Wall</td><td><span class="k">Obstacles</span></td><td>The piece can't enter it, and rests in front of
+            it.</td></tr>
+          <tr><td>Ice</td><td>any cell in none of the lists</td><td>Keeps the piece going the way it was moving.</td></tr>
+          <tr><td>Switch</td><td><span class="k">Switches</span> (also in <span class="k">Normal</span>)</td><td>A stop
+            tile that turns the <span class="k">SwitchedBelts</span> each time the piece rests on it.</td></tr>
+          <tr><td>Gem</td><td><span class="k">Pickups</span></td><td>Taken when a ride enters its cell; all of them before
+            the goal counts.</td></tr>
+          <tr><td>Hole</td><td><span class="k">Hazards</span></td><td>Entering one loses the attempt.</td></tr>
+          <tr><td>Chest spot</td><td><span class="k">SideStops</span></td><td>A resting place off every best route (with
+            <span class="k">SideStopCosts</span>, the extra moves each one costs).</td></tr>
+        </table>
+      </div>
+
+      <div class="section">
+        <h2 id="features">Features</h2>
+        <div class="feature-grid">
+          <div class="feature-card"><h4>Proven par</h4><p>The solver searches every position the puzzle can reach, so the
+            par is the true minimum and not an estimate. It also counts how many best solutions there are.</p></div>
+          <div class="feature-card"><h4>Difficulty in stars</h4><p>A 1 to 5 star rating from the par and the number of
+            places the piece can come to rest, which is the room a player has to get lost in. Ask for a star count and the
+            generator keeps trying until it gets one.</p></div>
+          <div class="feature-card"><h4>Board size</h4><p>Boards from 4 to 32 cells each way, with stop tiles on up to 15
+            to 50% of the board, walls on up to 15%, and ice patches if you want them.</p></div>
+          <div class="feature-card"><h4>The belt rule</h4><p>No belt points into a wall, a hole or off the board, in any
+            switch state, and no ride goes round for ever. Nothing the piece can reach is a dead end.</p></div>
+          <div class="feature-card"><h4>Gimmicks</h4><p>Up to 2 switches that reverse or rotate belts, 3 gems to collect,
+            and 6 holes on ice boards.</p></div>
+          <div class="feature-card"><h4>Every gimmick matters</h4><p>Each switch and gem is needed by the best solution.
+            Make a switch a plain stop tile and the puzzle gets longer or can't be solved, and lift a gem and it gets
+            shorter. Each hole is one that some ride of two or more cells really ends in.</p></div>
+          <div class="feature-card"><h4>Chest spots</h4><p>Ask for up to 40 resting places off every best route, where a
+            game can put a chest, a key or anything a detour should pay for. Each one comes with the extra moves going by it
+            costs.</p></div>
+          <div class="feature-card"><h4>Printable export</h4><p>Save any puzzle as a PNG or SVG: the colour view, a black
+            on white printable sheet that draws every tile by its shape alone, or an answer key with the best solution
+            drawn on.</p></div>
+          <div class="feature-card"><h4>ScriptableObjects</h4><p>Save single puzzles or ordered packs, with inspectors
+            that preview, re-check and regenerate them.</p></div>
+          <div class="feature-card"><h4>Play rules included</h4><p><span class="k">ConveyorRules</span> tells your game
+            what a move does and every cell it passes through, using the same rules the solver counted with, so the game
+            and the par always agree. It also gives hints from any position.</p></div>
+          <div class="feature-card"><h4>Editor tooling</h4><p>One Conveyor Generator window with 21 presets, an Auto
+            button that fixes settings that fight each other, and generation on a background thread with a progress bar,
+            Cancel and a time limit. Step through the best solution move by move on the board.</p></div>
+          <div class="feature-card"><h4>A 3D demo</h4><p>Four game modes with endless puzzles and 42 ready-made levels,
+            running belts, sounds and effects, all built in code. It works in URP, HDRP and the Built-in
+            pipeline.</p></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2 id="how">How it works</h2>
+        <div class="step"><div class="step-number">1</div><div class="step-content">
+          <h4>Configure</h4><p>Pick the board, the gimmicks, the chest spots and the difficulty, in the Conveyor Generator
+          window or with a <span class="k">ConveyorSettings</span> object in code.</p></div></div>
+        <div class="step"><div class="step-number">2</div><div class="step-content">
+          <h4>Lay the belts</h4><p>Stop tiles go down first, never side by side. Every other cell becomes a belt, grown
+          outward from a stop tile, so following the belts always ends on a stop tile.</p></div></div>
+        <div class="step"><div class="step-number">3</div><div class="step-content">
+          <h4>Pick the start and goal</h4><p>They go on the pair of stop tiles furthest apart in moves, where nothing the
+          piece can reach is a dead end.</p></div></div>
+        <div class="step"><div class="step-number">4</div><div class="step-content">
+          <h4>Climb</h4><p>One change at a time: a belt points another way, a belt becomes a stop tile or back, a wall comes
+          or goes, and (with Ice) a belt becomes ice or back. The change is kept when the puzzle doesn't get worse. A
+          change that would break the belt rule or leave a dead end is never kept. With a star target, the climb stops
+          short of the next star level.</p></div></div>
+        <div class="step"><div class="step-number">5</div><div class="step-content">
+          <h4>Add the gimmicks</h4><p>Switches, holes and gems each get a second climb on the finished board. Switches and
+          gems go where the best solution needs them, and holes where a ride of two or more cells ends in them.</p></div></div>
+        <div class="step"><div class="step-number">6</div><div class="step-content">
+          <h4>Rate and check</h4><p>The finished puzzle is solved again from its start. It records the par, one best
+          solution, how many best solutions exist, the chest spots, and the stars. A puzzle that misses what you asked for
+          is built again from the next seed.</p></div></div>
+        <div class="step"><div class="step-number">7</div><div class="step-content">
+          <h4>Use it</h4><p>Save it as an asset, export a picture of it, play it in the demo, or read the
+          <span class="k">ConveyorData</span> in your own scripts.</p></div></div>
+      </div>
+
+      <div class="section">
+        <h2 id="verified">Why "verified"</h2>
+        <p>Belt puzzles are easy to get wrong by hand. A belt can point into a wall, two belts can pass the piece back and
+          forth for ever, a shortcut can skip the whole route you designed, and one move can strand the piece for good.
+          Simple Conveyor proves the things you design around:</p>
+        <ul>
+          <li><strong>The par is real.</strong> It is the shortest solution that exists, so a 20-move puzzle really takes
+            20 moves.</li>
+          <li><strong>Every position is searched.</strong> A puzzle is only accepted when the search covered every position
+            it can reach, in every switch state and with every set of gems taken.</li>
+          <li><strong>No dead ends.</strong> Nothing the piece can reach is a place it can never win from.</li>
+          <li><strong>The belt rule holds.</strong> No belt points into a wall, a hole or off the board, whichever way the
+            switches have turned it.</li>
+          <li><strong>Gimmicks earn their place.</strong> A switch or gem the best solution could do without isn't left on
+            the board, and every hole is one that a ride of two or more cells really ends in.</li>
+          <li><strong>Misses are reported.</strong> When a star count, a par window or a gimmick that doesn't fit can't be
+            met, the puzzle's notes say what happened and what you got instead.</li>
+        </ul>
+        <div class="callout warning"><p><strong>Two honest limits:</strong> stars follow the board's size (up to 6 x 6 gives
+          1 star, 7 x 7 2, 8 x 8 3, 10 x 10 4, and 12 x 12 and up 5), so a target far from the size comes back as the
+          closest with a note. And gems lengthen puzzles fast: 3 gems take a 10 x 10 board from a par of about 26 to about
+          69, so cap gem puzzles with a maximum par or a star target.</p></div>
+      </div>
+
+      <div class="section">
+        <h2 id="start">Getting started</h2>
+        <p>Open <strong>Window &gt; Living Failure &gt; Simple Conveyor &gt; Conveyor Generator</strong>, pick a preset,
+          press <strong>Generate</strong> and look at the analysis on the right. Then open the demo scene and play. The
+          <a href="quick-start.html">Quick Start</a> walks through the whole loop in about five minutes.</p>
+      </div>
+
+    </main>
+  </div>
+
+  <div class="footer">
+    <p>Simple Conveyor by Living Failure. <a href="about.html">About and support</a></p>
+  </div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Troubleshooting - Simple Conveyor</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="format-selector" id="top">
+    <span class="format-label">View:</span>
+    <a href="index.html" class="format-link">Multi-Page</a>
+    <a href="single-page.html" class="format-link">Single Page</a>
+  </div>
+
+  <nav class="navbar"><ul>
+    <li><a href="index.html">Home</a></li>
+    <li><a href="quick-start.html">Quick Start</a></li>
+    <li><a href="generating.html">Generating</a></li>
+    <li><a href="api-reference.html">API Reference</a></li>
+    <li><a href="demos.html">Demos</a></li>
+    <li><a href="troubleshooting.html" class="active">Troubleshooting</a></li>
+    <li><a href="about.html">About</a></li>
+  </ul></nav>
+
+  <div class="hero">
+    <h1>Troubleshooting</h1>
+    <p class="tagline">What the notes mean, why a request can miss, and how long things take.</p>
+  </div>
+
+  <div class="page-layout">
+    <aside class="toc">
+      <h3>On this page</h3>
+      <ul>
+        <li><a href="#notes">Reading the notes</a></li>
+        <li><a href="#stars">"Target: ... not found"</a></li>
+        <li><a href="#verified">"Verified: no puzzle ..."</a></li>
+        <li><a href="#room">Fewer gimmicks than asked</a></li>
+        <li><a href="#holes">No holes on the board</a></li>
+        <li><a href="#chests">Few chest spots</a></li>
+        <li><a href="#handmade">A hand-made board misbehaves</a></li>
+        <li><a href="#slow">Generation feels slow</a></li>
+        <li><a href="#budget">"Solver: ..."</a></li>
+        <li><a href="#input">The demo ignores taps or keys</a></li>
+        <li><a href="#pink">Pink or dark in a pipeline</a></li>
+        <li><a href="#progress">Resetting the demo's progress</a></li>
+        <li><a href="#seeds">Seeds and versions</a></li>
+        <li><a href="#console">Console messages</a></li>
+        <li><a href="#ask">Still stuck</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+
+      <div class="section">
+        <h2 id="notes">Reading the notes</h2>
+        <p>Whenever the generator can't give you exactly what you asked for, it writes a note on the puzzle instead of
+          quietly giving you less. The analysis pane shows every note, and so does <span class="k">ConveyorData.Notes</span>
+          from code. Each one starts with what it is about, and the <a href="generating.html#honesty">Generating</a> page
+          lists them all. <span class="k">ConveyorAudit.MeetsRequest(puzzle)</span> tells you whether a puzzle got
+          everything its settings asked for, <span class="k">ConveyorAudit.Missing(puzzle)</span> lists what it missed, and
+          a pack's <strong>Re-roll &gt; Fallbacks</strong> replaces the ones that missed.</p>
+      </div>
+
+      <div class="section">
+        <h2 id="stars">"Target: 5 stars not found in 40 tries; the closest has 4."</h2>
+        <p>The stars follow the board's size, because a bigger board holds a longer par and more places to get lost. When
+          your target is outside what the board gave, the note says so and which way to change its size. Up to 6 x 6 gives
+          1 star (2 with ice at 6 x 6), 7 x 7 2, 8 x 8 3, 10 x 10 4, and 12 x 12 and up 5, and every size makes every
+          level below its most. Also:</p>
+        <ul>
+          <li>raise <strong>Max attempts</strong> under Advanced, so more seeds are tried;</li>
+          <li>remember that gems raise the score: it is multiplied by 1 + gems / 4, and gems lengthen the par a lot, so a
+            gem puzzle rates higher than a plain one on the same board. Use a smaller board for a low target with
+            gems;</li>
+          <li>a tight <strong>Max par</strong> can keep a puzzle below the stars you asked for. Auto raises it when it can
+            never reach them.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2 id="verified">"Verified: no puzzle in 40 tries was proven solvable with no dead ends and a par of ..."</h2>
+        <p>No board met the hard requirements: proven solvable with no dead ends, inside your par window, with your chest
+          spots, every switch and gem needed, and the live holes asked for. The note lists what it was looking for, what the
+          closest board has, and what to try: fewer of a gimmick, a bigger board, ice for more chest spots, a higher Max
+          par, more climb steps or a bigger state budget.</p>
+        <div class="callout tip"><p><strong>Auto</strong> fixes the settings known to fight each other, and the window
+          shows what it would change before you press it.</p></div>
+      </div>
+
+      <div class="section">
+        <h2 id="room">Fewer gimmicks than asked</h2>
+        <p>Every switch and gem has to be needed by the best solution, and every hole has to end some ride of two or more
+          cells, so one that would change nothing isn't kept. Verified generation tries more seeds until a puzzle has them
+          all, and the window's <strong>Only on target</strong> keeps just the puzzles that got everything. When none of
+          the tries does, the "Verified:" note says how many the closest one has.</p>
+        <ul>
+          <li><strong>Switches:</strong> two needed switches need room, so fewer fit on small boards, and a low star target
+            can leave no room for a second. Use a bigger board or one switch.</li>
+          <li><strong>Gems:</strong> every gem adds moves, so a tight Max par or a low star target can leave room for
+            fewer. Raise Max par, raise the target or use a bigger board.</li>
+          <li><strong>Holes:</strong> only an ice slide can carry the piece into a hole, so a board with little ice has room
+            for few. Use a bigger board or fewer holes.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2 id="holes">No holes on the board</h2>
+        <p>Holes need <strong>Ice</strong>. No belt ever points into a hole, so without ice the only way in would be
+          pushing straight into one from next to it, which isn't a puzzle. A board asked for holes without ice gets none,
+          with the note "Builder: no holes: holes need Ice", and <strong>Auto</strong> turns Ice on.</p>
+      </div>
+
+      <div class="section">
+        <h2 id="chests">Few chest spots</h2>
+        <p>On a belts-only board the piece only rests on stop tiles, and most of them are on the best route, so an 8 x 8
+          board has only about 3 to 7 chest spots of its own. Asking for more works, but each one past that costs about a
+          move of par, and past the stop tiles the board can have, it can't be met (Auto lowers it). Turn on
+          <strong>Ice</strong> for many more: ice boards have about 16 (8 x 8) to 26 (10 x 10) anyway.</p>
+      </div>
+
+      <div class="section">
+        <h2 id="handmade">A hand-made board misbehaves</h2>
+        <p>The generator keeps its rules on every board it makes, but a board you build by hand only has to pass
+          <span class="k">ConveyorRules.Validate</span>, which checks the data, not the design:</p>
+        <ul>
+          <li><strong>A belt pointing into a wall or off the board</strong> stops the piece on that belt. The rules play it
+            correctly, but it looks like a broken belt, which is why the generator never makes one.</li>
+          <li><strong>Belts that pass the piece round in a circle</strong> make that move refused ("That move would never
+            end"), and nothing moves.</li>
+          <li><strong>"Can get stuck":</strong> a hand-made board can have dead ends. Check
+            <span class="k">CanGetStuck</span> after <span class="k">ConveyorSolver.Verify</span>, and give players Undo
+            and Restart, as the demo does. Its card also says when there is no way to finish from where the player
+            is.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2 id="slow">Generation feels slow</h2>
+        <p>Measured on a desktop PC outside Unity, 24 builds of each preset (your machine and Unity's runtime will differ,
+          and a phone is slower):</p>
+        <table>
+          <tr><th>Puzzle</th><th>Time for one verified puzzle</th></tr>
+          <tr><td>Belts presets, 5 x 5 to 14 x 14</td><td>5 to 125 ms</td></tr>
+          <tr><td>Difficulty presets (a star target)</td><td>22 to 680 ms</td></tr>
+          <tr><td>Ice and chest spots</td><td>10 to 121 ms</td></tr>
+          <tr><td>Gems</td><td>12 to 152 ms</td></tr>
+          <tr><td>Switches</td><td>26 to 477 ms</td></tr>
+          <tr><td>Holes on ice</td><td>27 to 854 ms</td></tr>
+        </table>
+        <p>A star target that takes several tries is the usual slow case. The demo's Endless recipes, measured the same
+          way, took up to about 2.3 seconds.</p>
+        <ul>
+          <li>In the window, generation runs on a background thread with a progress bar that says what the board is doing,
+            and Cancel stops it within a fraction of a second. The <strong>Time limit</strong> (60 seconds by default) keeps
+            the closest board that finished, with a "Time limit:" note.</li>
+          <li>In a game, use the <span class="k">Async</span> methods, as the demo does for Endless, or make levels ahead
+            of time in the editor and ship them as a pack.</li>
+          <li>On WebGL there are no threads, so the demo makes Endless puzzles on the main thread there, and the game
+            pauses while it does.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2 id="budget">"Solver: ..."</h2>
+        <p>The solver searches up to <strong>State budget</strong> positions (1,000,000 by default). A plain belt board
+          needs one per cell, each gem can double that and switches multiply it by 2 or 4, so even a 32 x 32 board with 3
+          gems and Rotate switches stays far below the budget. You would only see this note on a hand-made board with many
+          gems or cracked tiles, or with a very small budget. Raise the State budget under Advanced (up to 5,000,000), or
+          pass a bigger budget to <span class="k">ConveyorSolver.Verify</span> and
+          <span class="k">ConveyorRules.Hint</span>.</p>
+        <p>"Solver: more than 1,000,000,000 best solutions; the count stops there." only means the count is capped.</p>
+      </div>
+
+      <div class="section">
+        <h2 id="input">The demo ignores taps or keys</h2>
+        <p>The demo uses the Input System package. Set <strong>Project Settings &gt; Player &gt; Active Input
+          Handling</strong> to <em>Input System Package</em> or <em>Both</em>. The hub makes an EventSystem with the Input
+          System's UI module when the scene has none. If your scene already has an EventSystem, its input module has to
+          match your input handling. Presses on the HUD's card and buttons never move the puck.</p>
+      </div>
+
+      <div class="section">
+        <h2 id="pink">Pink or dark in a pipeline</h2>
+        <ul>
+          <li><strong>Pink in a build:</strong> the demo makes its materials in code, and a build strips shaders that only
+            code uses. Before every build, <span class="k">ConveyorLookKeeper</span> writes
+            <code>Runtime/Demo/Resources/SimpleConveyorLook.mat</code> with the active pipeline's lit shader, so the build
+            keeps it. If you see pink, check that file exists after a build (deleting it is fine: the next build writes it
+            again).</li>
+          <li><strong>Dark or tinted in HDRP:</strong> out of the box HDRP uses physical light units, automatic exposure
+            and sky lighting. <span class="k">ConveyorDemo.HdrpLook</span> (on by default) adds a global volume at priority
+            10 with a fixed exposure and a gradient sky, and sets the sun in lux, so the demo looks the same as on the other
+            pipelines. Turn it off to let your own volumes and lights take over.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2 id="progress">Resetting the demo's progress</h2>
+        <p>The demo saves each pack level's best moves in PlayerPrefs, under
+          <code>SimpleConveyor.Demo.Best.&lt;pack name&gt;.&lt;level&gt;</code>. Call
+          <span class="k">ConveyorPackProgress.Clear(packName, count)</span> to forget a pack, or delete those keys. A
+          pack's progress is filed under its pack name, so renaming a pack starts it fresh.</p>
+      </div>
+
+      <div class="section">
+        <h2 id="seeds">Seeds and versions</h2>
+        <p>The same settings and seed always give the same puzzle within a version of Simple Conveyor. A future version
+          that improves the generator may change what a seed produces. Saved assets store the puzzle itself, not just its
+          seed, so your saved puzzles and packs never change. Verified generation stores the seed that actually worked,
+          such as <code>level-7-5#1</code>, so copying a puzzle's own seed always rebuilds that exact puzzle.</p>
+      </div>
+
+      <div class="section">
+        <h2 id="console">Console messages</h2>
+        <ul>
+          <li><strong>"[Simple Conveyor] Documentation page not found"</strong>: the documentation menu looks for these
+            pages in a folder whose path contains <code>SimpleConveyor</code> and <code>Documentation</code>. Keep the
+            Documentation folder inside the Simple Conveyor folder.</li>
+          <li><strong>"[Simple Conveyor] Generation failed"</strong>: something went wrong on the window's generation
+            thread. Please send the message with your settings and seed.</li>
+          <li><strong>"[Simple Conveyor] Kept ... in the build for the demo"</strong>: the build step wrote the look
+            material, which is expected after you switch render pipelines.</li>
+          <li><strong>"[Simple Conveyor] No lit shader found for the active render pipeline"</strong>: the pipeline asset
+            has no default material, so the demo may draw pink in a build. Give the pipeline asset a default
+            material.</li>
+          <li><strong>"[Simple Conveyor] Exported 12 file(s) from ..."</strong>: a pack's Export all finished.</li>
+          <li><strong>"Simple Conveyor hub: no picture for ..."</strong>: a mode card's picture couldn't be drawn. The card
+            still works without it.</li>
+        </ul>
+      </div>
+
+      <div class="section">
+        <h2 id="ask">Still stuck</h2>
+        <p>Email <a href="mailto:livingfailuregames@gmail.com">livingfailuregames@gmail.com</a> with your Unity version
+          and, for a question about one puzzle, its seed and settings. <strong>Copy seed</strong> and <strong>Copy
+          solution</strong> in the analysis pane make that easy, and a seed rebuilds the puzzle exactly.</p>
+      </div>
+
+    </main>
+  </div>
+
+  <div class="footer">
+    <p>Simple Conveyor by Living Failure. <a href="about.html">About and support</a></p>
+  </div>
+
+</div>
+</body>
+</html>

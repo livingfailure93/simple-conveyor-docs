@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generating Puzzles - Simple Conveyor</title>
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="page-wrap">
+
+  <div class="format-selector" id="top">
+    <span class="format-label">View:</span>
+    <a href="index.html" class="format-link">Multi-Page</a>
+    <a href="single-page.html" class="format-link">Single Page</a>
+  </div>
+
+  <nav class="navbar"><ul>
+    <li><a href="index.html">Home</a></li>
+    <li><a href="quick-start.html">Quick Start</a></li>
+    <li><a href="generating.html" class="active">Generating</a></li>
+    <li><a href="api-reference.html">API Reference</a></li>
+    <li><a href="demos.html">Demos</a></li>
+    <li><a href="troubleshooting.html">Troubleshooting</a></li>
+    <li><a href="about.html">About</a></li>
+  </ul></nav>
+
+  <div class="hero">
+    <h1>Generating Puzzles</h1>
+    <p class="tagline">Every setting, what it does, and how the generator decides.</p>
+  </div>
+
+  <div class="page-layout">
+    <aside class="toc">
+      <h3>On this page</h3>
+      <ul>
+        <li><a href="#window">The window</a></li>
+        <li><a href="#board">Board</a></li>
+        <li><a href="#gimmicks">Gimmicks</a></li>
+        <li><a href="#chests">Chest spots</a></li>
+        <li><a href="#quality">Quality</a></li>
+        <li><a href="#stars">How the stars work</a></li>
+        <li><a href="#auto">Auto and presets</a></li>
+        <li><a href="#seeds">Seeds, batches and saving</a></li>
+        <li><a href="#honesty">Limits and notes</a></li>
+        <li><a href="#code">Generating from code</a></li>
+      </ul>
+    </aside>
+    <main class="content">
+
+      <div class="section">
+        <h2 id="window">The Conveyor Generator window</h2>
+        <p>Open <strong>Window &gt; Living Failure &gt; Simple Conveyor &gt; Conveyor Generator</strong>. The settings are
+          on the left in four sections (Board, Gimmicks, Chest spots and Quality), with <strong>Auto</strong>,
+          <strong>Presets</strong> and <strong>Reset</strong> above them and the seed, batch and <strong>Generate</strong>
+          controls below. The puzzles you've made are on the right, one at a time with the analysis pane, and the arrows
+          page through them.</p>
+        <p>Every puzzle the window makes goes through <strong>verified generation</strong>: if a board misses what you
+          asked for, the generator builds another from the next seed, and if none of its tries succeed it gives you the
+          closest one with a note saying why. Generation runs on a background thread with a progress bar that says which
+          board it is on and what it is doing, and a <strong>Cancel</strong> button that stops it within a fraction of a
+          second, even in the middle of a board.</p>
+        <p>Each table below gives the label in the window, the matching field on <span class="k">ConveyorSettings</span>
+          for code, its range and its default. Values outside the range are clamped, so code can pass anything.</p>
+      </div>
+
+      <div class="section">
+        <h2 id="board">Board</h2>
+        <table>
+          <tr><th>Setting</th><th>Field</th><th>Range</th><th>What it does</th></tr>
+          <tr><td>Width, Height</td><td><code>Width</code>, <code>Height</code></td><td>4 to 32 (8 x 8)</td><td>The board in
+            cells. The stars follow the size: see <a href="#stars">How the stars work</a>. Every size up to 16 x 16 builds a
+            board in under 0.2 seconds (measured).</td></tr>
+          <tr><td>Ice</td><td><code>Ice</code></td><td>on or off (off)</td><td>Lets the builder lay ice, plain slippery
+            floor that keeps the piece going the way it was moving until a stop tile stops it, a belt turns it or a wall
+            stops it. Ice boards have more resting places and many more off the best route (8 x 8: about 33 places and 18
+            off the route, against 21 and 3 without ice), with a little less par. Every move of the best solution still
+            travels at least 2 cells, and 3 on average. Holes need ice.</td></tr>
+          <tr><td>Stop tiles</td><td><code>StopTiles</code></td><td>0.15 to 0.5 (0.35)</td><td>The most of the board that
+            may be stop tiles, where the piece comes to rest. They are never side by side, so every move rides. 0.35 is the
+            measured pick: at 0.25 the route becomes a line on belt-only boards, and 0.45 measures the same as 0.35.</td></tr>
+          <tr><td>Walls</td><td><code>Walls</code></td><td>0 to 0.15 (0.08)</td><td>The most of the board that may be walls.
+            Whatever the walls, no belt ever points into a wall, a hole or off the board: every belt carries the piece onto
+            another belt, ice or a stop tile.</td></tr>
+        </table>
+      </div>
+
+      <div class="section">
+        <h2 id="gimmicks">Gimmicks</h2>
+        <p>Every gimmick is proven by the solver together with the rest of the board. Each switch and gem is needed by the
+          best solution, and each hole is one that some ride of two or more cells ends in, so the player has to read the
+          board to see it coming. Verified generation only accepts puzzles that have all of them.</p>
+        <table>
+          <tr><th>Setting</th><th>Field</th><th>Range</th><th>What it does</th></tr>
+          <tr><td>Switches</td><td><code>Switches</code></td><td>0 to 2 (0)</td><td>Stop tiles that change the switched
+            belts each time the piece comes to rest on one. A second climb places them on the finished board and keeps only
+            switches the best solution needs: made a plain stop tile, the goal can't be reached or the par gets longer. The
+            belt rule holds in every switch state. Measured on 10 boards a row with 2 switches, they were needed on 59 of
+            60. Fewer fit on small boards.</td></tr>
+          <tr><td>Switch does</td><td><code>SwitchMode</code></td><td>Reverse, Rotate (Reverse)</td><td><strong>Reverse:</strong>
+            the switched belts run the other way, and resting on a switch again turns them back (2 switch states). It adds
+            about 1 move of par, but a player without a plan needs about 4 times the moves on 8 x 8.
+            <strong>Rotate:</strong> they turn a quarter turn clockwise, and four rests bring them back (4 states). It adds
+            17 to 30% of par and about 24 times the moves for a player without a plan.</td></tr>
+          <tr><td>Gems</td><td><code>Pickups</code></td><td>0 to 3 (0)</td><td>Taken the moment a ride enters their cell,
+            riding a belt across it or stopping on it, and the goal only counts once every one is taken. They go where they
+            add the most moves, then the belts are climbed again around them, and only gems the best solution needs are kept
+            (lifted, the par drops). Measured: 2 gems take 8 x 8 from a par of 17 to 36, and 3 take 6 x 6 from 10 to 25 and
+            10 x 10 from 26 to 69, so cap gem puzzles with <a href="#quality">Max par</a> or a star target.</td></tr>
+          <tr><td>Holes</td><td><code>Holes</code></td><td>0 to 6 (0), needs Ice</td><td>Cells that lose the attempt when a
+            ride enters one (a game puts the piece back where it was). No belt ever points into a hole, so only an ice slide
+            can carry the piece into one: without Ice none are placed, with a note, and Auto turns Ice on. Holes never change
+            the par or the stars. Measured on 8 x 8 ice: about 4 holes and 5 rides into them, and a player without a plan
+            needs about 3 times the moves.</td></tr>
+        </table>
+        <div class="callout info"><p><strong>Gems and switches cost search time.</strong> The solver tracks which gems are
+          taken and which way the switches have turned the belts, so each gem can double the positions it searches, and
+          switches multiply them by 2 (Reverse) or 4 (Rotate). Ice, walls and holes add none. Every preset still builds in
+          under a second.</p></div>
+      </div>
+
+      <div class="section">
+        <h2 id="chests">Chest spots</h2>
+        <table>
+          <tr><th>Setting</th><th>Field</th><th>Range</th><th>What it does</th></tr>
+          <tr><td>Chest spots</td><td><code>SideStops</code></td><td>0 to 40 (0)</td><td>At least this many resting places
+            off every best route: places a player can reach and still win from, but that no best solution passes. A game can
+            put a chest, a key or anything a detour should pay for there. 0 means whatever the climb leaves. The climb meets
+            this first, then makes the puzzle as hard as it can.</td></tr>
+        </table>
+        <p>Saved puzzles list the spots in <span class="k">SideStops</span>, and <span class="k">SideStopCosts</span> gives
+          the extra moves going by each one costs. The pane's <strong>Chest spots</strong> toggle marks them on the board
+          and in exports. A belt-only board holds about as many resting places whatever you ask (about 21 on 8 x 8), so it
+          has 3 to 7 chest spots anyway, and each one asked for past that costs about a move of par: 6 spots on 8 x 8 give a
+          par near 14 instead of 17, and 10 give about 9. Ice boards have 16 (8 x 8) to 26 (10 x 10) anyway, and asking for
+          15 or 30 costs only about 4 moves of par (all measured).</p>
+      </div>
+
+      <div class="section">
+        <h2 id="quality">Quality</h2>
+        <table>
+          <tr><th>Setting</th><th>Field</th><th>Range</th><th>What it does</th></tr>
+          <tr><td>Target stars</td><td><code>TargetDifficulty</code></td><td>0 to 5 (0)</td><td>0 means any: the climb
+            goes as far as the board allows. 1 to 5 stops the climb short of the next star level and tries more boards until
+            one rates exactly that. A target the board's size can't reach comes back as the closest puzzle, with a
+            note.</td></tr>
+          <tr><td>Par window</td><td><code>MinPar</code>, <code>MaxPar</code></td><td>0 to 1,000 (4, and 0)</td><td>A puzzle
+            needs at least MinPar moves, and at most MaxPar, where 0 means no upper limit. The builder never climbs past
+            MaxPar.</td></tr>
+          <tr><td>Climb steps</td><td><code>ClimbSteps</code></td><td>0 to 20,000 (3,000)</td><td>Under Advanced: how many
+            improvement steps the builder takes, each one a change to the board and a solve. The switch, hole and gem climbs
+            scale with it. 3,000 is what the measurements used.</td></tr>
+          <tr><td>Max attempts</td><td><code>MaxAttempts</code></td><td>1 to 500 (40)</td><td>Under Advanced: boards tried
+            for each puzzle before falling back to the closest one.</td></tr>
+          <tr><td>State budget</td><td><code>StateBudget</code></td><td>1,000 to 5,000,000 (1,000,000)</td><td>Under
+            Advanced: the positions the solver may explore. A plain belt board needs one per cell, and gems and switches
+            multiply them. A search the budget cuts short is marked as not proven, and verified generation doesn't accept
+            it.</td></tr>
+        </table>
+      </div>
+
+      <div class="section">
+        <h2 id="stars">How the stars work</h2>
+        <p>Every proven puzzle gets a 1 to 5 star difficulty, or 0 when it isn't proven solvable. The score is the square
+          root of the par times the number of resting places the piece can reach, where a place counts once in each switch
+          state, and with gems the product is multiplied by 1 + gems / 4. The par is the effort, and the resting places are
+          the room a player has to get lost in. The stars were fitted to 1,500 generated puzzles, each played by a simulated
+          player who moves without a plan but prefers places it hasn't been yet, the same yardstick Simple Ice Slide's
+          stars use, so a star means about the same in both.</p>
+        <table>
+          <tr><th>Stars</th><th>Score</th><th>The simulated player's median moves</th></tr>
+          <tr><td>1</td><td>under 13</td><td>6</td></tr>
+          <tr><td>2</td><td>13 to 20</td><td>25</td></tr>
+          <tr><td>3</td><td>20 to 28</td><td>89</td></tr>
+          <tr><td>4</td><td>28 to 35</td><td>402</td></tr>
+          <tr><td>5</td><td>35 and up</td><td>6,400</td></tr>
+        </table>
+        <p>The score tracks the simulated player with a rank correlation of 0.961, and the stars match the player's own
+          stars on 73% of puzzles and are within one star on 96%.</p>
+        <p>Stars follow the board's size. Up to 6 x 6 gives 1 star (2 with ice at 6 x 6), 7 x 7 2, 8 x 8 3, 10 x 10 4, and
+          12 x 12 and up 5, and every size makes every level below its most. That is how Target stars aims, so for a target
+          above your board's most, use a bigger board. Holes don't change the stars, and they are there to punish a careless
+          ride.</p>
+      </div>
+
+      <div class="section">
+        <h2 id="auto">Auto and presets</h2>
+        <p><strong>Auto</strong> fixes settings that fight each other and tells you what it changed. The window also shows
+          what Auto would change, live, as a warning under the settings. In code it is
+          <span class="k">ConveyorPresets.Tune</span>. It:</p>
+        <ul>
+          <li>turns Ice on when you ask for holes, because only an ice slide can carry the piece into one;</li>
+          <li>lowers Min par when it is at or over the most stop tiles the board may have, on boards without ice, switches
+            or gems (there the piece only rests on stop tiles, each at most once on the best route);</li>
+          <li>lowers Chest spots on those same boards when the stop tiles left over by Min par can't hold that many;</li>
+          <li>lowers Min par when a 1 to 4 star target can never be met with it, on boards without gems (there the score is
+            always more than the par);</li>
+          <li>raises Max par when it is too low for the stars you asked for on that size of board.</li>
+        </ul>
+        <p><strong>Presets</strong> replace every setting with a ready-made recipe. In code they are
+          <span class="k">ConveyorPresets.All</span>, and each one's <span class="k">Make()</span> gives a fresh
+          <span class="k">ConveyorSettings</span>. Each was built 24 times for this page, and every one of the 504 puzzles
+          got everything its recipe asked for. The par ranges are the widest seen over 48 builds of each.</p>
+        <table>
+          <tr><th>Preset</th><th>What you get</th></tr>
+          <tr><td>Belts/First puzzle</td><td>5 x 5 belts and stop tiles: a first level, par 6 to 7.</td></tr>
+          <tr><td>Belts/Small</td><td>6 x 6 belts and stop tiles, par 8 to 11.</td></tr>
+          <tr><td>Belts/Medium</td><td>8 x 8 belts and stop tiles, par 14 to 20.</td></tr>
+          <tr><td>Belts/Large</td><td>10 x 10 belts and stop tiles, par 19 to 30.</td></tr>
+          <tr><td>Belts/Huge</td><td>14 x 14 belts and stop tiles, par 24 to 43.</td></tr>
+          <tr><td>Difficulty/Easy</td><td>8 x 8 aiming for 2 stars, par 14 to 19.</td></tr>
+          <tr><td>Difficulty/Medium</td><td>8 x 8 aiming for 3 stars, par 19 to 21.</td></tr>
+          <tr><td>Difficulty/Hard</td><td>10 x 10 aiming for 4 stars, par 24 to 30.</td></tr>
+          <tr><td>Difficulty/Expert</td><td>12 x 12 aiming for 5 stars, par 29 to 39.</td></tr>
+          <tr><td>Chest spots/Belts</td><td>8 x 8 belts with at least 6 resting places off the best route for chests or
+            keys, par 7 to 15.</td></tr>
+          <tr><td>Chest spots/Ice</td><td>10 x 10 with ice and at least 20 resting places off the best route, par 9 to
+            20.</td></tr>
+          <tr><td>Switches/Reverse</td><td>8 x 8 with 2 switches: resting on one makes the switched belts run the other way,
+            par 9 to 26.</td></tr>
+          <tr><td>Switches/Rotate</td><td>8 x 8 with 2 switches that turn the switched belts a quarter turn: the harder
+            kind, par 9 to 26.</td></tr>
+          <tr><td>Gems/Small</td><td>6 x 6 with a gem to take before the goal counts, par 10 to 23.</td></tr>
+          <tr><td>Gems/Medium</td><td>8 x 8 with 2 gems, par 23 to 36 (capped, because gems lengthen puzzles
+            fast).</td></tr>
+          <tr><td>Gems/Large</td><td>10 x 10 with 3 gems, par 32 to 50 (capped).</td></tr>
+          <tr><td>Holes/Medium</td><td>8 x 8 with ice and 3 holes an ice slide can carry you into (no belt ever points at
+            one), par 6 to 16.</td></tr>
+          <tr><td>Holes/Large</td><td>10 x 10 with ice and 5 holes, par 10 to 23.</td></tr>
+          <tr><td>Ice/Small</td><td>6 x 6 with ice patches that keep you sliding, par 4 to 10.</td></tr>
+          <tr><td>Ice/Medium</td><td>8 x 8 with ice patches, par 8 to 17, and many resting places off the best
+            route.</td></tr>
+          <tr><td>Ice/Large</td><td>12 x 12 with ice patches, par 16 to 29.</td></tr>
+        </table>
+      </div>
+
+      <div class="section">
+        <h2 id="seeds">Seeds, batches and saving</h2>
+        <p>The same settings and the same seed always give the same puzzle. In the window, <strong>Random</strong> uses a
+          fresh seed for every Generate and shows the one it used. Turn Random off to type a seed and keep it, and
+          <strong>Copy</strong> copies it. Each puzzle in a batch gets its own seed, the batch's seed followed by a dash and
+          the puzzle's number (<code>-0</code>, <code>-1</code> and so on), and every puzzle stores its own seed, which the
+          analysis pane can copy.</p>
+        <p>Verified generation tries the seed itself first, then the same seed with <code>#1</code>, <code>#2</code> and so
+          on added, until a puzzle meets the request. A puzzle's stored seed is the one that worked, such as
+          <code>level-7-5#1</code>, so with the same settings it always rebuilds that exact puzzle.</p>
+        <p><strong>Batch count</strong> makes 1 to 50 puzzles per click and adds them to the set.
+          <strong>Clear on generate</strong> empties the set first, so each click replaces the batch.
+          <strong>Time limit</strong> (0 to 600 seconds, 60 by default, 0 for none) is how long one puzzle may take: past
+          it, generation keeps the closest board that finished, with a note, and if no board finished, that puzzle is
+          listed as not made and the batch carries on. The limit is shared with the inspectors' Re-roll.</p>
+        <p><strong>Only on target</strong> hides the fallbacks, and the cross removes a puzzle from the set.
+          <strong>Save</strong> then writes <em>Current</em> as a <span class="k">ConveyorPuzzleAsset</span>, or <em>Pack
+          (all)</em> or <em>Pack (on target only)</em> as a <span class="k">ConveyorPuzzlePack</span>, using the name in
+          <strong>Save name</strong> as the suggestion.</p>
+      </div>
+
+      <div class="section">
+        <h2 id="honesty">Limits and notes</h2>
+        <p>The generator never quietly gives you less than you asked for. Whenever something didn't go to plan, the puzzle's
+          <span class="k">Notes</span> say what happened, and the analysis pane shows every one. Each note starts with what
+          it is about:</p>
+        <ul>
+          <li><strong>Target:</strong> no puzzle in the attempts had the stars you asked for. You got the closest, and when
+            the target is outside what this board gave, the note says which way to change its size.</li>
+          <li><strong>Verified:</strong> no puzzle in the attempts was proven solvable with no dead ends, inside your par
+            window, with your chest spots, needed switches and gems, and live holes. It says what the closest one has and
+            what to try: fewer of a gimmick, a bigger board, ice for more chest spots, a higher Max par, more climb steps or
+            a bigger state budget.</li>
+          <li><strong>Builder:</strong> you asked for holes without Ice, so none were placed, or the par ended under your Min
+            par because this board size tops out lower.</li>
+          <li><strong>Time limit:</strong> generation stopped at the time limit, and this is the closest of the boards that
+            finished.</li>
+          <li><strong>Solver:</strong> the state budget ran out before the search finished, or there are more than
+            1,000,000,000 best solutions and the count stops there.</li>
+        </ul>
+        <p>Use <span class="k">ConveyorAudit.MeetsRequest(puzzle)</span> to check whether a puzzle got everything its
+          settings asked for, and <span class="k">ConveyorAudit.Missing(puzzle)</span> to list what it missed. A pack's
+          inspector can re-roll every puzzle in the pack that missed something (<strong>Re-roll &gt;
+          Fallbacks</strong>).</p>
+      </div>
+
+      <div class="section">
+        <h2 id="code">Generating from code</h2>
+        <p>Everything the window does is available from code through <span class="k">ConveyorGenerator</span>. Your
+          settings object is copied and clamped first, so it is never changed.</p>
+<pre><code>using SimpleConveyor;
+
+var s = new ConveyorSettings
+{
+    Width = 10, Height = 10,
+    Switches = 1,                 // a switch the best solution needs
+    Pickups = 1,                  // a gem to take before the goal counts
+    TargetDifficulty = 4,
+    Seed = "level-7",             // empty = a fresh random seed
+};
+
+ConveyorData one = ConveyorGenerator.Generate(s);            // one puzzle from this exact seed, solved and rated
+ConveyorData good = ConveyorGenerator.GenerateVerified(s);   // tries seeds until the puzzle meets the request
+List&lt;ConveyorData&gt; pack = ConveyorGenerator.GenerateBatch(s, 10);   // seeds level-7-0 to level-7-9, each verified</code></pre>
+        <p><span class="k">Generate</span>, <span class="k">GenerateVerified</span> and <span class="k">GenerateBatch</span>
+          each have an <span class="k">Async</span> version that runs on a background thread and takes a
+          <span class="k">CancellationToken</span>. In Unity, <span class="k">await</span> carries on on the main thread
+          afterwards. <span class="k">GenerateBatchAsync</span> also reports progress:</p>
+<pre><code>var progress = new Progress&lt;int&gt;(n =&gt; Debug.Log($"{n} of 10 done"));
+List&lt;ConveyorData&gt; puzzles = await ConveyorGenerator.GenerateBatchAsync(s, 10, progress, cancel.Token);</code></pre>
+        <p>For a time limit and a running report of what a board is doing, use
+          <span class="k">GenerateVerified(settings, cancel, progress, timeLimitSeconds)</span>, which the window uses. See
+          the <a href="api-reference.html">API Reference</a>.</p>
+        <div class="callout tip"><p><strong>How long it takes</strong> (measured on a desktop, 24 builds of each preset; a
+          phone is slower): most presets take 5 to 300 milliseconds a puzzle. The slowest builds were 0.5 to 0.9 seconds,
+          with Rotate switches, holes on a 10 x 10 ice board, or a star target that took several tries. In a game,
+          generate with the Async versions (the demo does) or ahead of time in the editor as a pack.</p></div>
+      </div>
+
+    </main>
+  </div>
+
+  <div class="footer">
+    <p>Simple Conveyor by Living Failure. <a href="about.html">About and support</a></p>
+  </div>
+
+</div>
+</body>
+</html>
